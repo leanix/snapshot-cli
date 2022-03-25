@@ -50,6 +50,15 @@ jobs:
         with:
           name: Test report
           path: build/reports/tests/test
+      - name: upload linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path:
+          asset_name: snapshot-cli
+          asset_content_type: application/octet-stream
 
   jira-slack:
     needs: [ setup-build-test-package ]
