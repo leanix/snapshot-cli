@@ -1,0 +1,93 @@
+name: snapshot-cli
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+      - renovate/*
+    paths-ignore:
+      - '**README.md'
+      - '.idea/**'
+      - '.github/renovate.json'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+
+env:
+  PROJECT_NAME: 'Snapshot CLI'
+  ACTION_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  setup-build-test-package:
+    name: setup, build, test and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Get credentials
+        uses: leanix/secrets-action@master
+        with:
+          secret-store-credentials: ${{ secrets.INJECTED_SECRET_STORE_CREDENTIALS }}
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v2.5.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Execute Gradle build
+        run: ./gradlew build
+
+      - name: Archive test report
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: Test report
+          path: build/reports/tests/test
+
+  jira-slack:
+    needs: [ setup-build-test-package ]
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    name: post to Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Get credentials
+        uses: leanix/secrets-action@master
+        with:
+          secret-store-credentials: ${{ secrets.INJECTED_SECRET_STORE_CREDENTIALS }}
+
+      - name: Get Tag
+        uses: leanix/release-docker-image-action@master
+        id: image-tags
+        with:
+          registry: acr
+          only-output-tags: true
+
+      - name: Send build & release success message
+        if: needs.deploy.result == 'success'
+        uses: archive/github-actions-slack@v2.3.2
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: '#team-hook-builds'
+          slack-text: |
+            :rocket: ${{ env.PROJECT_NAME }} successfully deployed in version ${{ steps.image-tags.outputs.tag }}
+            ${{ env.ACTION_URL }}
+
+      - name: Send build & release fail message
+        if: needs.setup-build-test-push.result == 'failure' || needs.deploy.result == 'failure'
+        uses: archive/github-actions-slack@v2.3.2
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: '#team-hook-builds'
+          slack-text: |
+            :scream: ${{ env.PROJECT_NAME }} could not be deployed in version ${{ steps.image-tags.outputs.tag }}
+            ${{ env.ACTION_URL }}
