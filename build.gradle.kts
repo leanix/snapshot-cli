@@ -19,7 +19,7 @@ kotlin {
 
     nativeTarget.apply {
         binaries {
-            executable {
+            executable(listOf(RELEASE)) {
                 entryPoint = "main"
             }
         }
