@@ -55,11 +55,9 @@ jobs:
         uses: ncipollo/release-action@v1
         id: create_release
         with:
-          draft: true
+          draft: false
           prerelease: true
           artifacts: build/bin/native/releaseExecutable/snapshot-cli.kexe
-          name: ${{ github.run_id }}
-          tag: ${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
