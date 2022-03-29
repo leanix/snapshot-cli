@@ -64,10 +64,10 @@ done
 while getopts ":c:u:s:t:h" flag; do
     case "${flag}" in
         c)
-            CONNECTION_STRING="\"${OPTARG}\""
+            CONNECTION_STRING=${OPTARG}
             ;;
         u)
-            URL="\"${OPTARG}\""
+            URL=${OPTARG}
             ;;
         s)
             SOURCE_WS_ID=${OPTARG}
@@ -122,7 +122,9 @@ COMMAND=$1
 if [[ "${COMMAND}" == "take-snapshot" ]] ; then
     # ------------- SNAPSHOT --------------
     echo "Starting to take a snapshot now."
-    pg_dump ${CONNECTION_STRING} --schema=${SOURCE_SCHEMA} --format=custom --blobs | azcopy cp ${URL} --put-md5
+    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > out.txt
+    echo ${URL}
+    azcopy copy /Users/andreasulmer/dev/snapshot-cli/test/out.txt "${URL}" --put-md5 --from-to LocalBlob
 
 elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     # ------------- RESTORE --------------
