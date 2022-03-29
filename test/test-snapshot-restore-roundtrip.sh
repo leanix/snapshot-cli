@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+docker build --platform=linux/amd64 -t pf-mock ../.
+
 STORAGE_APPLICATION_ID=$(kubectl get secret service-principal -o json | jq -r .data.application_id | base64 -d)
 STORAGE_SECRET=$(kubectl get secret service-principal -o json | jq -r .data.secret | base64 -d)
 STORAGE_TENANT_ID=$(kubectl get secret service-principal -o json | jq -r .data.tenant_id | base64 -d)
@@ -14,7 +16,7 @@ else
 fi
 
 # SAS token with write access
-UPLOAD_URL=$(docker run --rm mcr.microsoft.com/azure-cli az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
+UPLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
     --container-name snapshot-manager \
     --name $BLOB \
@@ -22,9 +24,11 @@ UPLOAD_URL=$(docker run --rm mcr.microsoft.com/azure-cli az login --service-prin
     --expiry $EXPIRY \
     --auth-mode login \
     --as-user \
-    --full-uri )
+    --full-uri ")
+echo "uploadurl:"
+echo $UPLOAD_URL
 
-DOWNLOAD_URL=$(docker run --rm mcr.microsoft.com/azure-cli az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
+DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
     --container-name snapshot-manager \
     --name $BLOB \
@@ -32,8 +36,8 @@ DOWNLOAD_URL=$(docker run --rm mcr.microsoft.com/azure-cli az login --service-pr
     --expiry $EXPIRY \
     --auth-mode login \
     --as-user \
-    --full-uri )
-echo azcopy copy "./out.txt" "$UPLOAD_URL" --put-md5
+    --full-uri ")
+echo docker azcopy copy "./out.txt" "$UPLOAD_URL" --put-md5
 echo $DOWNLOAD_URL
 # postgres in docker
 
@@ -42,10 +46,11 @@ echo $DOWNLOAD_URL
 
 # create schema, table and row
 
-cat setup.sql | docker exec -i postgres-db psql -U postgres
+# cat setup.sql | docker exec -i postgres-db psql -U postgres
+
 
 # run take-snapshot in PF like docker container
-../snapshot-cli -c "host=localhost port=5432 dbname=postgres user=postgres password=postgres" -s "00000000-0000-0000-0000-000000000000" -u "${UPLOAD_URL}" take-snapshot
+docker run --platform=linux/amd64 --rm pf-mock bash -c "snapshot-cli -c 'host=localhost port=5432 dbname=postgres user=postgres password=postgres' -s 00000000-0000-0000-0000-000000000000 -u ${UPLOAD_URL} take-snapshot"
 # assert file exist on Azure-Blob
 
 # simulate data loss on source schema by dropping the whole table

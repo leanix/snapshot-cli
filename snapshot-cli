@@ -122,9 +122,10 @@ COMMAND=$1
 if [[ "${COMMAND}" == "take-snapshot" ]] ; then
     # ------------- SNAPSHOT --------------
     echo "Starting to take a snapshot now."
-    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > out.txt
-    echo ${URL}
-    azcopy copy /Users/andreasulmer/dev/snapshot-cli/test/out.txt "${URL}" --put-md5 --from-to LocalBlob
+    # pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > out.txt
+    echo $URL
+    echo ${CONNECTION_STRING}
+    azcopy copy /snapshot-cli-installer.sh ${URL} --put-md5 --from-to LocalBlob
 
 elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     # ------------- RESTORE --------------
