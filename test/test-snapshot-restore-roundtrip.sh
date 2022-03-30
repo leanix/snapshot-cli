@@ -42,6 +42,7 @@ docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "sna
 docker exec  postgres-test psql -U postgres -c "drop table ws_00000000_0000_0000_0000_000000000000.factsheets;"
 
 
+
 # SAS token with read access
 DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
@@ -58,6 +59,7 @@ DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cl
 bash -c "curl ${DOWNLOAD_URL} --output snapshot.sql"
 
 if [[ ! -f ./snapshot.sql ]] ; then
+ echo "Snapshot Download failed"
  exit 1
 fi
 ## restore to source schema
@@ -71,6 +73,7 @@ docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "sna
 FIRST_SELECT=$(docker exec -i postgres-test psql -U postgres -c "select * from ws_00000000_0000_0000_0000_000000000000.factsheets;")
 
 if [[ $FIRST_SELECT != *"00000000-0000-0000-0000-000000000001"* ]] ; then
+  echo "Snapshot restore in same workspace failed"
   exit 1
 fi
 ## restore to target schema that doesn't exist yet
@@ -91,6 +94,7 @@ docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "sna
 # verify row exists
 SECOND_SELECT=$(docker exec -i postgres-test psql -U postgres -c "select * from ws_00000000_0000_0000_0000_000000000001.factsheets;")
 if [[ $SECOND_SELECT != *"00000000-0000-0000-0000-000000000001"* ]] ; then
+  echo "Snapshot restore in new workspace failed"
   exit 1
 fi
 docker rm -f postgres-test
