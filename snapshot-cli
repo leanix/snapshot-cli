@@ -122,10 +122,8 @@ COMMAND=$1
 if [[ "${COMMAND}" == "take-snapshot" ]] ; then
     # ------------- SNAPSHOT --------------
     echo "Starting to take a snapshot now."
-    # pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > out.txt
-    echo $URL
-    echo ${CONNECTION_STRING}
-    azcopy copy /snapshot-cli-installer.sh ${URL} --put-md5 --from-to LocalBlob
+    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > /db.snapshot
+    azcopy copy /db.snapshot ${URL} --put-md5 --from-to LocalBlob
 
 elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     # ------------- RESTORE --------------
@@ -140,9 +138,9 @@ elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     
     echo "Starting to restore a snapshot now."
     # The --clean option of pg_restore doesn't generate the statement to create the schema, so we do it manually.
-    psql ${CONNECTION_STRING} --variable=ON_ERROR_STOP=1 --output=/dev/null --command="CREATE SCHEMA IF NOT EXISTS ${TARGET_SCHEMA}"
+    psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --command="CREATE SCHEMA IF NOT EXISTS ${TARGET_SCHEMA}"
     # azure blob -(azcopy)-> binary dump -(pg_restore)-> plain text dump -(sed)-> plain text dump with replacements -(psql)-> target schema in DB
-    azcopy cp ${URL} > pg_restore --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists --file=- | sed -e "s/${SOURCE_SCHEMA}/${TARGET_SCHEMA}/g" -e "s/${SOURCE_WS_ID}/${TARGET_WS_ID}/g" | psql ${CONNECTION_STRING} --variable=ON_ERROR_STOP=1 --output=/dev/null --file=-
+    azcopy cp ${URL} --from-to BlobPipe | pg_restore --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists --file=- | sed -e "s/${SOURCE_SCHEMA}/${TARGET_SCHEMA}/g" -e "s/${SOURCE_WS_ID}/${TARGET_WS_ID}/g" | psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --file=-
 
     # TODO: in case the source and target ws are equal then we could use pg_restore directly on the binary dump file
     # azure blob -(azcopy)-> binary dump -(pg_restore)-> source schema in DB
