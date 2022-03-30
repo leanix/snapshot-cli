@@ -32,16 +32,13 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: $TAG_NAME
-          name: $RELEASE_NAME
+          tag_name: prerelease-tag-${{ steps.date.outputs.date }}
+          name: prerelease-${{ steps.date.outputs.date }}
           draft: false
           prerelease: true
           files: |
             snapshot-cli
             snapshot-cli-installer.sh
-        env:
-          TAG_NAME: prerelease-tag-${{ steps.date.outputs.date }}
-          RELEASE_NAME: prerelease-${{ steps.date.outputs.date }}
 
   jira-slack:
     needs: [ release ]
