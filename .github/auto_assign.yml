@@ -1,0 +1,18 @@
+# https://github.com/kentaro-m/auto-assign/
+# Set to true to add reviewers to pull requests
+addReviewers: true
+
+# Set to true to add assignees to pull requests
+addAssignees: false
+
+# A list of team reviewers to be added to pull requests (GitHub team slug)
+reviewers:
+  - anuleanix
+  - romansaul
+  - dan-leanix
+  - kaibepperling
+  - niklas-leanix
+
+# Number of reviewers has no impact on Github teams
+# Set 0 to add all the reviewers (default: 0)
+numberOfReviewers: 0

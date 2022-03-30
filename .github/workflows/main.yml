@@ -1,0 +1,70 @@
+name: snapshot-cli
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+    paths-ignore:
+      - '**README.md'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+
+env:
+  PROJECT_NAME: 'Snapshot CLI'
+  ACTION_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  release:
+    name: Release snapshot-cli
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Create a release
+        uses: ncipollo/release-action@v1
+        with:
+          draft: false
+          prerelease: true
+          artifacts: "snapshot-cli,snapshot-cli-installer.sh"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  jira-slack:
+    needs: [ release ]
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    name: Post to Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Get credentials
+        uses: leanix/secrets-action@master
+        with:
+          secret-store-credentials: ${{ secrets.INJECTED_SECRET_STORE_CREDENTIALS }}
+
+      - name: Send build & release success message
+        if: needs.deploy.result == 'success'
+        uses: archive/github-actions-slack@v2.4.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: '#team-hook-builds'
+          slack-text: |
+            :rocket: ${{ env.PROJECT_NAME }} successfully released a new version
+            ${{ env.ACTION_URL }}
+
+      - name: Send build & release fail message
+        if: needs.release.result == 'failure' || needs.deploy.result == 'failure'
+        uses: archive/github-actions-slack@v2.4.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: '#team-hook-builds'
+          slack-text: |
+            :scream: ${{ env.PROJECT_NAME }} could not release a new version
+            ${{ env.ACTION_URL }}
