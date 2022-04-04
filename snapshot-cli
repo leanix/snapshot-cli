@@ -122,8 +122,9 @@ COMMAND=$1
 if [[ "${COMMAND}" == "take-snapshot" ]] ; then
     # ------------- SNAPSHOT --------------
     echo "Starting to take a snapshot now."
-    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > /db.snapshot
-    azcopy copy /db.snapshot ${URL} --put-md5 --from-to LocalBlob
+    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > /${SOURCE_SCHEMA}.snapshot
+    azcopy copy /${SOURCE_SCHEMA}.snapshot ${URL} --put-md5 --from-to LocalBlob
+    rm ${SOURCE_SCHEMA}.snapshot
 
 elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     # ------------- RESTORE --------------
