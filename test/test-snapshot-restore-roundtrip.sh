@@ -9,7 +9,7 @@ STORAGE_APPLICATION_ID=$(kubectl get secret service-principal -o json | jq -r .d
 STORAGE_SECRET=$(kubectl get secret service-principal -o json | jq -r .data.secret | base64 -d)
 STORAGE_TENANT_ID=$(kubectl get secret service-principal -o json | jq -r .data.tenant_id | base64 -d)
 
-BLOB="test-app-hook-1.leanix.net/00000000-0000-0000-0000-000000000000/2007-12-24T18:21Z-00000000-0000-0000-0000-000000000000/foo-service.sql"
+BLOB="test-app-reinvent-1.leanix.net/00000000-0000-0000-0000-000000000000/2007-12-24T18:21Z-00000000-0000-0000-0000-000000000000/foo-service.sql"
 
 if [[ "$(uname)" == "Darwin" ]] ; then
     EXPIRY=$(date -v+5M +"%Y-%m-%dT%H:%M:%SZ")
@@ -18,7 +18,7 @@ else
 fi
 
 # SAS token with write access
-UPLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
+UPLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli:2.34.0 bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password '$STORAGE_SECRET' --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
     --container-name snapshot-manager \
     --name $BLOB \
@@ -27,6 +27,8 @@ UPLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli 
     --auth-mode login \
     --as-user \
     --full-uri ")
+
+echo $UPLOAD_URL
 
 # postgres in docker
 
@@ -44,7 +46,7 @@ docker exec  postgres-test psql -U postgres -c "drop table ws_00000000_0000_0000
 
 
 # SAS token with read access
-DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
+DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli:2.34.0 bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password '$STORAGE_SECRET' --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
     --container-name snapshot-manager \
     --name $BLOB \
@@ -78,7 +80,7 @@ if [[ $FIRST_SELECT != *"00000000-0000-0000-0000-000000000001"* ]] ; then
 fi
 ## restore to target schema that doesn't exist yet
 # SAS token with read access
-DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password $STORAGE_SECRET --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
+DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password '$STORAGE_SECRET' --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
     --account-name smwesteuropetest \
     --container-name snapshot-manager \
     --name $BLOB \
