@@ -1,5 +1,5 @@
 # snapshot-cli
-A binary that helps services to take snapshots and restore them.
+An opinionated binary that helps services to take schema snapshots from PostgreSQL and restore them.
 
 ## Temp
 
