@@ -4,7 +4,8 @@ set -euo pipefail
 docker run --name postgres-test -e POSTGRES_PASSWORD=postgres -d postgres:11.6
 
 docker build --platform=linux/amd64 -t pf-mock ../.
-
+kubectx aks-westeurope-test-dufourspitze
+kubens snapshot-manager
 STORAGE_APPLICATION_ID=$(kubectl get secret service-principal -o json | jq -r .data.application_id | base64 -d)
 STORAGE_SECRET=$(kubectl get secret service-principal -o json | jq -r .data.secret | base64 -d)
 STORAGE_TENANT_ID=$(kubectl get secret service-principal -o json | jq -r .data.tenant_id | base64 -d)
@@ -35,7 +36,7 @@ cat setup.sql | docker exec -i postgres-test psql -U postgres
 
 
 # run take-snapshot in PF like docker container
-docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-cli -c 'host=postgres-test port=5432 dbname=postgres user=postgres password=postgres' -s 00000000-0000-0000-0000-000000000000 -u ${UPLOAD_URL} take-snapshot"
+docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-cli -c 'host=postgres-test port=5432 dbname=postgres user=postgres password=postgres' -s 00000000-0000-0000-0000-000000000000 -u ${UPLOAD_URL} -d '/' take-snapshot"
 
 # simulate data loss on source schema by dropping the whole table
 docker exec  postgres-test psql -U postgres -c "drop table ws_00000000_0000_0000_0000_000000000000.factsheets;"

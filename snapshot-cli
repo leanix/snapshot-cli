@@ -15,6 +15,7 @@ Options:
   -u, --azure-blob-url              URL of the Azure-Blob where the snapshot file is uploaded to / downloaded from
   -s, --source-workspace-id         Id of the source workspace
   -t, --target-workspace-id         Id of the target workspace
+  -d, --temp-dir                    Temporary directory
 
 Examples:
   $( basename $0 ) -c "host=172.17.0.5 port=5432 dbname=postgres user=a-user password=a-secret" -s 00000000-0000-0000-0000-000000000000 take-snapshot
@@ -56,12 +57,15 @@ for arg in "$@"; do
         "--help")
             set -- "$@" "-h"
             ;;
+        "--temp-directory")
+            set -- "$@" "-d"
+            ;;
         *)
             set -- "$@" "${arg}"
     esac
 done
 
-while getopts ":c:u:s:t:h" flag; do
+while getopts ":c:u:s:t:hd:" flag; do
     case "${flag}" in
         c)
             CONNECTION_STRING=${OPTARG}
@@ -78,6 +82,9 @@ while getopts ":c:u:s:t:h" flag; do
         h)
             print_usage
             exit 0
+            ;;
+        d)
+            TEMP_DIR=${OPTARG}
             ;;
         \?)  
             echoerr "Invalid option -${OPTARG}"
@@ -117,14 +124,20 @@ fi
 set -u
 SOURCE_SCHEMA=$(build_schema_name $SOURCE_WS_ID)
 
+set +u
+if [[ -z "${TEMP_DIR}" ]] ; then
+    TEMP_DIR="/tmp"
+fi
+set -u
+
 COMMAND=$1
 
 if [[ "${COMMAND}" == "take-snapshot" ]] ; then
     # ------------- SNAPSHOT --------------
     echo "Starting to take a snapshot now."
-    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > /${SOURCE_SCHEMA}.snapshot
-    azcopy copy /${SOURCE_SCHEMA}.snapshot ${URL} --put-md5 --from-to LocalBlob
-    rm ${SOURCE_SCHEMA}.snapshot
+    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > $TEMP_DIR/${SOURCE_SCHEMA}.snapshot
+    azcopy copy $TEMP_DIR/${SOURCE_SCHEMA}.snapshot ${URL} --put-md5 --from-to LocalBlob
+    rm $TEMP_DIR/${SOURCE_SCHEMA}.snapshot
 
 elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
     # ------------- RESTORE --------------
