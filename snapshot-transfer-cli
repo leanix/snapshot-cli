@@ -1,0 +1,119 @@
+#!/bin/bash
+set -euo pipefail
+
+function print_usage() {
+  cat <<EOF
+
+Usage: $(basename $0) [OPTIONS] COMMAND
+
+Commands:
+  upload            Upload a snapshot to a Azure-Blob
+  download          Download a snapshot from a Azure-Blob
+
+Options:
+  -u, --azure-blob-url              URL of the Azure-Blob where the snapshot file is uploaded to / downloaded from
+  -d, --temp-dir                    Temporary directory
+  -l, --local-file                  Local file to use for the upload / download
+Examples:
+  $(basename $0) -d / -l foo-service.sql -u <SASUrl> upload
+  $(basename $0) -d / -l foo-service.sql -u <SASUrl> download
+EOF
+}
+
+function echoerr() {
+  echo "$@" 1>&2
+}
+
+# --------- main ---------
+
+if [[ $# -eq 0 ]]; then
+  print_usage
+  exit 1
+fi
+
+for arg in "$@"; do
+  shift
+  case "${arg}" in
+  "--azure-blob-url")
+    set -- "$@" "-u"
+    ;;
+  "--local-file")
+    set -- "$@" "-l"
+    ;;
+  "--help")
+    set -- "$@" "-h"
+    ;;
+  "--temp-directory")
+    set -- "$@" "-d"
+    ;;
+  *)
+    set -- "$@" "${arg}"
+    ;;
+  esac
+done
+
+while getopts ":u:hd:l:" flag; do
+  case "${flag}" in
+  u)
+    URL=${OPTARG}
+    ;;
+  h)
+    print_usage
+    exit 0
+    ;;
+  d)
+    TEMP_DIR=${OPTARG}
+    ;;
+  l)
+    LOCAL_FILE=${OPTARG}
+    ;;
+  \?)
+    echoerr "Invalid option -${OPTARG}"
+    print_usage
+    exit 1
+    ;;
+  esac
+done
+
+shift "$((OPTIND - 1))" #removes all parsed arguments
+
+if [[ $# -eq 0 ]]; then
+  echoerr "A COMMAND is missing."
+  print_usage
+  exit 1
+fi
+
+set +u
+if [[ -z "${TEMP_DIR}" ]]; then
+  TEMP_DIR="/tmp"
+fi
+set -u
+
+COMMAND=$1
+
+if [[ "${COMMAND}" == "upload" ]]; then
+  set +u
+  if [[ -z "${LOCAL_FILE}" ]]; then
+    echoerr "The option '-l' is missing."
+    print_usage
+    exit 1
+  fi
+  set -u
+  azcopy copy $TEMP_DIR/"$LOCAL_FILE" ${URL} --put-md5 --from-to LocalBlob
+  rm $TEMP_DIR/"$LOCAL_FILE"
+elif [[ "${COMMAND}" == "download" ]]; then
+  set +u
+  if [[ -z "${LOCAL_FILE}" ]]; then
+    echoerr "The option '-l' is missing."
+    print_usage
+    exit 1
+  fi
+  set -u
+  azcopy copy ${URL} $TEMP_DIR/"$LOCAL_FILE" --from-to BlobLocal
+  rm $TEMP_DIR/"$LOCAL_FILE"
+else
+  echoerr "Wrong COMMAND."
+  print_usage
+  exit 1
+fi
+echo "Operation completed sucessfully."

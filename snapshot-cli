@@ -2,9 +2,9 @@
 set -euo pipefail
 
 function print_usage() {
-cat <<EOF
+  cat <<EOF
 
-Usage: $( basename $0 ) [OPTIONS] COMMAND
+Usage: $(basename $0) [OPTIONS] COMMAND
 
 Commands:
   take-snapshot     Take a snapshot from a postgres schema
@@ -18,186 +18,154 @@ Options:
   -d, --temp-dir                    Temporary directory
 
 Examples:
-  $( basename $0 ) -c "host=172.17.0.5 port=5432 dbname=postgres user=a-user password=a-secret" -s 00000000-0000-0000-0000-000000000000 take-snapshot
-  $( basename $0 ) -c "host=172.17.0.5 port=5432 dbname=postgres user=a-user password=a-secret" -s 00000000-0000-0000-0000-000000000000 -t 00000000-0000-0000-0000-000000000001 restore-snapshot
+  $(basename $0) -c "host=172.17.0.5 port=5432 dbname=postgres user=a-user password=a-secret" -s 00000000-0000-0000-0000-000000000000 take-snapshot
+  $(basename $0) -c "host=172.17.0.5 port=5432 dbname=postgres user=a-user password=a-secret" -s 00000000-0000-0000-0000-000000000000 -t 00000000-0000-0000-0000-000000000001 restore-snapshot
 EOF
 }
 
 function echoerr() {
-    echo "$@" 1>&2
+  echo "$@" 1>&2
 }
 
 function build_schema_name() {
-    WS_ID=$1
-    echo "ws_${WS_ID//-/_}"
+  WS_ID=$1
+  echo "ws_${WS_ID//-/_}"
 }
 
 # --------- main ---------
 
-if [[ $# -eq 0 ]] ; then
-    print_usage
-    exit 1
+if [[ $# -eq 0 ]]; then
+  print_usage
+  exit 1
 fi
 
 for arg in "$@"; do
-    shift
-    case "${arg}" in
-        "--postgres-connection-string")
-            set -- "$@" "-c"
-            ;;
-        "--azure-blob-url")
-            set -- "$@" "-u"
-            ;;
-        "--source-workspace-id")
-            set -- "$@" "-s"
-            ;;
-        "--target-workspace-id")
-            set -- "$@" "-t"
-            ;;
-        "--local-file")
-            set -- "$@" "-l"
-            ;;
-        "--help")
-            set -- "$@" "-h"
-            ;;
-        "--temp-directory")
-            set -- "$@" "-d"
-            ;;
-        *)
-            set -- "$@" "${arg}"
-    esac
+  shift
+  case "${arg}" in
+  "--postgres-connection-string")
+    set -- "$@" "-c"
+    ;;
+  "--azure-blob-url")
+    set -- "$@" "-u"
+    ;;
+  "--source-workspace-id")
+    set -- "$@" "-s"
+    ;;
+  "--target-workspace-id")
+    set -- "$@" "-t"
+    ;;
+  "--help")
+    set -- "$@" "-h"
+    ;;
+  "--temp-directory")
+    set -- "$@" "-d"
+    ;;
+  *)
+    set -- "$@" "${arg}"
+    ;;
+  esac
 done
 
-while getopts ":c:u:s:t:hd:l:" flag; do
-    case "${flag}" in
-        c)
-            CONNECTION_STRING=${OPTARG}
-            ;;
-        u)
-            URL=${OPTARG}
-            ;;
-        s)
-            SOURCE_WS_ID=${OPTARG}
-            ;;
-        t)
-            TARGET_WS_ID=${OPTARG}
-            ;;
-        h)
-            print_usage
-            exit 0
-            ;;
-        d)
-            TEMP_DIR=${OPTARG}
-            ;;
-        l)
-            LOCAL_FILE=${OPTARG}
-            ;;
-        \?)
-            echoerr "Invalid option -${OPTARG}"
-            print_usage
-            exit 1
-    esac
+while getopts ":c:u:s:t:hd:" flag; do
+  case "${flag}" in
+  c)
+    CONNECTION_STRING=${OPTARG}
+    ;;
+  u)
+    URL=${OPTARG}
+    ;;
+  s)
+    SOURCE_WS_ID=${OPTARG}
+    ;;
+  t)
+    TARGET_WS_ID=${OPTARG}
+    ;;
+  h)
+    print_usage
+    exit 0
+    ;;
+  d)
+    TEMP_DIR=${OPTARG}
+    ;;
+  \?)
+    echoerr "Invalid option -${OPTARG}"
+    print_usage
+    exit 1
+    ;;
+  esac
 done
 
 set +u
-if [[ -z "${CONNECTION_STRING}" ]] ; then
-    echoerr "The option '-c' is missing."
-    print_usage
-    exit 1
+if [[ -z "${CONNECTION_STRING}" ]]; then
+  echoerr "The option '-c' is missing."
+  print_usage
+  exit 1
 fi
 
-if [[ -z "${URL}" ]] ; then
-    echoerr "The option '-u' is missing."
-    print_usage
-    exit 1
+if [[ -z "${URL}" ]]; then
+  echoerr "The option '-u' is missing."
+  print_usage
+  exit 1
 fi
 set -u
 
+set +u
+if [[ -z "${SOURCE_WS_ID}" ]]; then
+  echoerr "The option '-s' is missing."
+  print_usage
+  exit 1
+fi
+set -u
+SOURCE_SCHEMA=$(build_schema_name $SOURCE_WS_ID)
+
 shift "$((OPTIND - 1))" #removes all parsed arguments
 
-if [[ $# -eq 0 ]] ; then
-    echoerr "A COMMAND is missing."
-    print_usage
-    exit 1
+if [[ $# -eq 0 ]]; then
+  echoerr "A COMMAND is missing."
+  print_usage
+  exit 1
 fi
 
-
 set +u
-if [[ -z "${TEMP_DIR}" ]] ; then
-    TEMP_DIR="/tmp"
+if [[ -z "${TEMP_DIR}" ]]; then
+  TEMP_DIR="/tmp"
 fi
 set -u
 
 COMMAND=$1
 
-if [[ "${COMMAND}" == "take-snapshot" ]] ; then
-    set +u
-    if [[ -z "${SOURCE_WS_ID}" ]] ; then
-        echoerr "The option '-s' is missing."
-        print_usage
-        exit 1
-    fi
-    set -u
-    SOURCE_SCHEMA=$(build_schema_name $SOURCE_WS_ID)
-    # ------------- SNAPSHOT --------------
-    echo "Starting to take a snapshot now."
-    pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs > $TEMP_DIR/${SOURCE_SCHEMA}.snapshot
-    azcopy copy $TEMP_DIR/${SOURCE_SCHEMA}.snapshot ${URL} --put-md5 --from-to LocalBlob
-    rm $TEMP_DIR/${SOURCE_SCHEMA}.snapshot
+if [[ "${COMMAND}" == "take-snapshot" ]]; then
 
-elif [[ "${COMMAND}" == "restore-snapshot" ]] ; then
-    # ------------- RESTORE --------------
-    set +u
-    if [[ -z "${SOURCE_WS_ID}" ]] ; then
-        echoerr "The option '-s' is missing."
-        print_usage
-        exit 1
-    fi
-    set -u
-    SOURCE_SCHEMA=$(build_schema_name $SOURCE_WS_ID)
+  # ------------- SNAPSHOT --------------
+  echo "Starting to take a snapshot now."
+  pg_dump "${CONNECTION_STRING}" --schema="${SOURCE_SCHEMA}" --format=custom --blobs >$TEMP_DIR/${SOURCE_SCHEMA}.snapshot
+  azcopy copy $TEMP_DIR/${SOURCE_SCHEMA}.snapshot ${URL} --put-md5 --from-to LocalBlob
+  rm $TEMP_DIR/${SOURCE_SCHEMA}.snapshot
 
-    set +u
-    if [[ -z "${TARGET_WS_ID}" ]] ; then
-        echoerr "The option '-t' is missing."
-        print_usage
-        exit 1
-    fi
-    set -u
-    TARGET_SCHEMA=$(build_schema_name $TARGET_WS_ID)
-
-    echo "Starting to restore a snapshot now."
-    # The --clean option of pg_restore doesn't generate the statement to create the schema, so we do it manually.
-    psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --command="CREATE SCHEMA IF NOT EXISTS ${TARGET_SCHEMA}"
-    # azure blob -(azcopy)-> binary dump -(pg_restore)-> plain text dump -(sed)-> plain text dump with replacements -(psql)-> target schema in DB
-    azcopy cp ${URL} --from-to BlobPipe | pg_restore --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists --file=- | sed -e "s/${SOURCE_SCHEMA}/${TARGET_SCHEMA}/g" -e "s/${SOURCE_WS_ID}/${TARGET_WS_ID}/g" | psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --file=-
-
-    # TODO: in case the source and target ws are equal then we could use pg_restore directly on the binary dump file
-    # azure blob -(azcopy)-> binary dump -(pg_restore)-> source schema in DB
-    # azcopy cp ${URL} > pg_restore --dbname="host=172.17.0.5 port=5432 dbname=postgres user=postgres" --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists
-
-elif [[ "${COMMAND}" == "upload-snapshot" ]] ; then
-    set +u
-    if [[ -z "${LOCAL_FILE}" ]] ; then
-        echoerr "The option '-l' is missing."
-        print_usage
-        exit 1
-    fi
-    set -u
-    azcopy copy $TEMP_DIR/"$LOCAL_FILE" ${URL} --put-md5 --from-to LocalBlob
-    rm $TEMP_DIR/"$LOCAL_FILE"
-elif [[ "${COMMAND}" == "download-snapshot" ]] ; then
-    set +u
-    if [[ -z "${LOCAL_FILE}" ]] ; then
-        echoerr "The option '-l' is missing."
-        print_usage
-        exit 1
-    fi
-    set -u
-    azcopy copy ${URL} $TEMP_DIR/"$LOCAL_FILE" --from-to BlobLocal
-    rm $TEMP_DIR/"$LOCAL_FILE"
-else
-    echoerr "Wrong COMMAND."
+elif [[ "${COMMAND}" == "restore-snapshot" ]]; then
+  # ------------- RESTORE --------------
+  set +u
+  if [[ -z "${TARGET_WS_ID}" ]]; then
+    echoerr "The option '-t' is missing."
     print_usage
     exit 1
+  fi
+  set -u
+  TARGET_SCHEMA=$(build_schema_name $TARGET_WS_ID)
+
+  echo "Starting to restore a snapshot now."
+  # The --clean option of pg_restore doesn't generate the statement to create the schema, so we do it manually.
+  psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --command="CREATE SCHEMA IF NOT EXISTS ${TARGET_SCHEMA}"
+  # azure blob -(azcopy)-> binary dump -(pg_restore)-> plain text dump -(sed)-> plain text dump with replacements -(psql)-> target schema in DB
+  azcopy cp ${URL} --from-to BlobPipe | pg_restore --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists --file=- | sed -e "s/${SOURCE_SCHEMA}/${TARGET_SCHEMA}/g" -e "s/${SOURCE_WS_ID}/${TARGET_WS_ID}/g" | psql "${CONNECTION_STRING}" --variable=ON_ERROR_STOP=1 --output=/dev/null --file=-
+
+  # TODO: in case the source and target ws are equal then we could use pg_restore directly on the binary dump file
+  # azure blob -(azcopy)-> binary dump -(pg_restore)-> source schema in DB
+  # azcopy cp ${URL} > pg_restore --dbname="host=172.17.0.5 port=5432 dbname=postgres user=postgres" --schema=${SOURCE_SCHEMA} --format=custom --exit-on-error --no-owner --no-privileges --clean --if-exists
+
+else
+  echoerr "Wrong COMMAND."
+  print_usage
+  exit 1
 fi
 echo "Operation completed sucessfully."
