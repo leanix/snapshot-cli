@@ -68,7 +68,7 @@ for arg in "$@"; do
     esac
 done
 
-while getopts ":c:u:s:t:h:d:l:" flag; do
+while getopts ":c:u:s:t:hd:l:" flag; do
     case "${flag}" in
         c)
             CONNECTION_STRING=${OPTARG}
