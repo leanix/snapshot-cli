@@ -39,6 +39,8 @@ jobs:
           files: |
             snapshot-cli
             snapshot-cli-installer.sh
+            snapshot-transfer-cli
+            snapshot-transfer-cli-installer.sh
 
   jira-slack:
     needs: [ release ]
