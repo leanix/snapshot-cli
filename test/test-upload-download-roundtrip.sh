@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-docker run --name postgres-test -e POSTGRES_PASSWORD=postgres -d postgres:11.6
-
 docker build --platform=linux/amd64 -t pf-mock ../.
 kubectx aks-westeurope-test-dufourspitze
 kubens snapshot-manager
@@ -34,9 +32,7 @@ echo "create file"
 
 echo "Uploading snapshot to $UPLOAD_URL"
 # run take-snapshot in PF like docker container
-docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "touch /tmp/snapshot.sql && echo 'content' >> /tmp/snapshot.sql && snapshot-cli -c 'host=postgres-test port=5432 dbname=postgres user=postgres password=postgres' -l snapshot.sql -u ${UPLOAD_URL} -d '/tmp/' upload-snapshot"
-
-
+docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "touch /tmp/snapshot.sql && echo 'content' >> /tmp/snapshot.sql && snapshot-transfer-cli  -l snapshot.sql -u ${UPLOAD_URL} -d '/tmp' upload"
 
 # SAS token with read access
 DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli:2.34.0 bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password '$STORAGE_SECRET' --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
@@ -58,7 +54,4 @@ if [[ ! -f ./snapshot.sql ]]; then
 fi
 
 ## restore to source schema
-docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-cli -c 'host=postgres-test port=5432 dbname=postgres user=postgres password=postgres' -d '/tmp/' -l snapshot.sql -u ${DOWNLOAD_URL} download-snapshot"
-
-
-docker rm -f postgres-test
+docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-transfer-cli  -d '/tmp' -l snapshot.sql -u ${DOWNLOAD_URL} download"
