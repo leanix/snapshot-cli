@@ -7,8 +7,8 @@ function print_usage() {
 Usage: $(basename $0) [OPTIONS] COMMAND
 
 Commands:
-  upload            Upload a snapshot to a Azure-Blob
-  download          Download a snapshot from a Azure-Blob
+  upload            Upload a snapshot to an Azure Blob
+  download          Download a snapshot from an Azure Blob
 
 Options:
   -u, --azure-blob-url              URL of the Azure-Blob where the snapshot file is uploaded to / downloaded from
