@@ -28,11 +28,11 @@ UPLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli:
     --full-uri ")
 # postgres in docker
 echo "create file"
-#docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "touch /snapshot.sql && echo 'content' >> /snapshot.sql"
 
 echo "Uploading snapshot to $UPLOAD_URL"
 # run take-snapshot in PF like docker container
-docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "touch /tmp/snapshot.sql && echo 'content' >> /tmp/snapshot.sql && snapshot-transfer-cli  -l snapshot.sql -u ${UPLOAD_URL} -d '/tmp' upload"
+
+docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "touch /tmp/snapshot.json && echo 'content' >> /tmp/snapshot.json && snapshot-transfer-cli  -l snapshot.json -u ${UPLOAD_URL} -d '/tmp' upload"
 
 # SAS token with read access
 DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cli:2.34.0 bash -c "az login --service-principal --username $STORAGE_APPLICATION_ID --password '$STORAGE_SECRET' --tenant $STORAGE_TENANT_ID > /dev/null && az storage blob generate-sas \
@@ -46,12 +46,12 @@ DOWNLOAD_URL=$(docker run --rm --platform=linux/amd64 mcr.microsoft.com/azure-cl
     --full-uri ")
 
 # assert file exist on Azure-Blob
-bash -c "curl ${DOWNLOAD_URL} --output snapshot.sql"
+bash -c "curl ${DOWNLOAD_URL} --output snapshot.json"
 
-if [[ ! -f ./snapshot.sql ]]; then
+if [[ ! -f ./snapshot.json ]]; then
   echo "Snapshot Download failed"
   exit 1
 fi
 
 ## restore to source schema
-docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-transfer-cli  -d '/tmp' -l snapshot.sql -u ${DOWNLOAD_URL} download"
+docker run --platform=linux/amd64 --link postgres-test --rm pf-mock bash -c "snapshot-transfer-cli  -d '/tmp' -l snapshot.json -u ${DOWNLOAD_URL} download"
