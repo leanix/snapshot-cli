@@ -12,6 +12,7 @@ reviewers:
   - dan-leanix
   - kaibepperling
   - niklas-leanix
+  - therealjsie
 
 # Number of reviewers has no impact on Github teams
 # Set 0 to add all the reviewers (default: 0)
