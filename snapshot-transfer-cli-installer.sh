@@ -12,6 +12,7 @@ mv /tmp/snapshot-transfer-cli-installer/azcopy_linux_amd64_${AZCOPY_VERSION}/azc
 
 echo "Starting to install the snapshot-transfer-cli."
 mv /snapshot-transfer-cli /usr/local/bin/.
+chmod a+x /usr/local/bin/azcopy
 
 echo "Cleaning up."
 rm -rf /tmp/snapshot-transfer-cli-installer
